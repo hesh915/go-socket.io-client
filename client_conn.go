@@ -1,4 +1,4 @@
-package engine_client
+package socketio_client
 
 import (
 	"errors"
@@ -217,10 +217,9 @@ func (c *clientConn) onOpen() error {
 		return InvalidError
 	}
 
-	q:= c.request.URL.Query()
-	q.Set("transport","polling")
+	q := c.request.URL.Query()
+	q.Set("transport", "polling")
 	c.request.URL.RawQuery = q.Encode()
-
 
 	transport, err := creater.Client(c.request)
 	if err != nil {
@@ -228,15 +227,15 @@ func (c *clientConn) onOpen() error {
 	}
 	c.setCurrent("polling", transport)
 
-	pack,err :=  c.getCurrent().NextReader()
+	pack, err := c.getCurrent().NextReader()
 	if err != nil {
-		return  err
+		return err
 	}
 	fmt.Println(pack)
 
 	//var p []byte
-	p:=make([]byte,1024)
-	l,err := pack.Read(p)
+	p := make([]byte, 1024)
+	l, err := pack.Read(p)
 	fmt.Println(l)
 	fmt.Println(err)
 	fmt.Println(string(p))
@@ -247,10 +246,9 @@ func (c *clientConn) onOpen() error {
 	}
 
 	c.request.URL.Scheme = "ws"
-	q.Set("sid","0")
-	q.Set("transport","websocket")
+	q.Set("sid", "0")
+	q.Set("transport", "websocket")
 	c.request.URL.RawQuery = q.Encode()
-
 
 	transport, err = creater.Client(c.request)
 	if err != nil {
@@ -258,14 +256,14 @@ func (c *clientConn) onOpen() error {
 	}
 	c.setCurrent("websocket", transport)
 
-	pack,err =  c.getCurrent().NextReader()
+	pack, err = c.getCurrent().NextReader()
 	if err != nil {
-		return  err
+		return err
 	}
 	fmt.Println(pack)
 
-	p2:=make([]byte,1024)
-	l,err = pack.Read(p2)
+	p2 := make([]byte, 1024)
+	l, err = pack.Read(p2)
 	fmt.Println(l)
 	fmt.Println(err)
 	fmt.Println(string(p2))

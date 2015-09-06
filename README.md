@@ -1,1 +1,1 @@
-# go-engine.io-client
+# go-socket.io-client

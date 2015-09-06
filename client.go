@@ -1,4 +1,4 @@
-package engine_client
+package socketio_client
 
 import (
 	"reflect"
