@@ -1,6 +1,7 @@
 package socketio_client
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/googollee/go-engine.io/message"
@@ -10,6 +11,7 @@ import (
 	"github.com/googollee/go-engine.io/websocket"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -89,6 +91,7 @@ func newClientConn(transportName string, r *http.Request) (client *clientConn, e
 	}
 
 	go client.pingLoop()
+	go client.readLoop()
 
 	return
 }
@@ -128,8 +131,14 @@ func (c *clientConn) NextWriter(t MessageType) (io.WriteCloser, error) {
 	default:
 		return nil, io.EOF
 	}
+	c.writerLocker.Lock()
 	ret, err := c.getCurrent().NextWriter(message.MessageType(t), parser.MESSAGE)
-	return ret, err
+	if err != nil {
+		c.writerLocker.Unlock()
+		return ret, err
+	}
+	writer := newConnWriter(ret, &c.writerLocker)
+	return writer, err
 }
 
 func (c *clientConn) Close() error {
@@ -178,6 +187,30 @@ func (c *clientConn) OnPacket(r *parser.PacketDecoder) {
 		fallthrough
 	case parser.PONG:
 		c.pingChan <- true
+		if c.getState() == stateUpgrading {
+			p := make([]byte, 64)
+			_, err := r.Read(p)
+			if err == nil && strings.Contains(string(p), "probe") {
+				c.writerLocker.Lock()
+				w, _ := c.getUpgrade().NextWriter(message.MessageText, parser.UPGRADE)
+				if w != nil {
+					io.Copy(w, r)
+					w.Close()
+				}
+				c.writerLocker.Unlock()
+
+				c.upgraded()
+				//fmt.Println("probe")
+
+				/*
+					w, _ = c.getCurrent().NextWriter(message.MessageText, parser.MESSAGE)
+					if w != nil {
+						w.Write([]byte("2[\"message\",\"testtesttesttesttesttest\"]"))
+						w.Close()
+					}
+				*/
+			}
+		}
 	case parser.MESSAGE:
 		closeChan := make(chan struct{})
 		c.readerChan <- newConnReader(r, closeChan)
@@ -231,22 +264,66 @@ func (c *clientConn) onOpen() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(pack)
 
-	//var p []byte
-	p := make([]byte, 1024)
+	p := make([]byte, 4096)
 	l, err := pack.Read(p)
-	fmt.Println(l)
-	fmt.Println(err)
-	fmt.Println(string(p))
+	if err != nil {
+		return err
+	}
+	//fmt.Println(string(p))
 
+	type connectionInfo struct {
+		Sid          string        `json:"sid"`
+		Upgrades     []string      `json:"upgrades"`
+		PingInterval time.Duration `json:"pingInterval"`
+		PingTimeout  time.Duration `json:"pingTimeout"`
+	}
+
+	var msg connectionInfo
+	err = json.Unmarshal(p[:l], &msg)
+	if err != nil {
+		return err
+	}
+	msg.PingInterval *= 1000 * 1000
+	msg.PingTimeout *= 1000 * 1000
+
+	//fmt.Println(msg)
+
+	c.pingInterval = msg.PingInterval
+	c.pingTimeout = msg.PingTimeout
+	c.id = msg.Sid
+
+	/*
+		q.Set("sid", c.id)
+		c.request.URL.RawQuery = q.Encode()
+
+		transport, err = creater.Client(c.request)
+		if err != nil {
+			return err
+		}
+		c.setCurrent("polling", transport)
+
+		pack, err = c.getCurrent().NextReader()
+		if err != nil {
+			return err
+		}
+
+		p2 := make([]byte, 4096)
+		l, err = pack.Read(p2)
+		if err != nil {
+			return err
+		}
+		//fmt.Println(string(p2))
+	*/
+
+	//upgrade
 	creater, exists = creaters["websocket"]
 	if !exists {
 		return InvalidError
 	}
 
 	c.request.URL.Scheme = "ws"
-	q.Set("sid", "0")
+	q.Set("sid", c.id)
 	q.Set("transport", "websocket")
 	c.request.URL.RawQuery = q.Encode()
 
@@ -254,21 +331,16 @@ func (c *clientConn) onOpen() error {
 	if err != nil {
 		return err
 	}
-	c.setCurrent("websocket", transport)
+	c.setUpgrading("websocket", transport)
 
-	pack, err = c.getCurrent().NextReader()
+	w, err := c.getUpgrade().NextWriter(message.MessageText, parser.PING)
 	if err != nil {
 		return err
 	}
-	fmt.Println(pack)
+	w.Write([]byte("probe"))
+	w.Close()
 
-	p2 := make([]byte, 1024)
-	l, err = pack.Read(p2)
-	fmt.Println(l)
-	fmt.Println(err)
-	fmt.Println(string(p2))
-
-	fmt.Println("end")
+	//fmt.Println("end")
 
 	return nil
 }
@@ -358,5 +430,28 @@ func (c *clientConn) pingLoop() {
 			c.Close()
 			return
 		}
+	}
+}
+
+func (c *clientConn) readLoop() {
+
+	current := c.getCurrent()
+
+	defer func() {
+		c.OnClose(current)
+	}()
+
+	for {
+		current = c.getCurrent()
+		if c.getUpgrade() != nil {
+			current = c.getUpgrade()
+		}
+
+		pack, err := current.NextReader()
+		if err != nil {
+			return
+		}
+		c.OnPacket(pack)
+		pack.Close()
 	}
 }
