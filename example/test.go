@@ -1,25 +1,26 @@
 package main
 
 import (
-	"bufio"
 	"github.com/zhouhui8915/go-socket.io-client"
 	"log"
+	"bufio"
 	"os"
+	"time"
 )
 
 func main() {
 
 	opts := &socketio_client.Options{
-		Transport: "websocket",
-		Query:     make(map[string]string),
+		Transport:"websocket",
+		Query:make(map[string]string),
 	}
-	opts.Query["user"] = "user"
-	opts.Query["pwd"] = "pass"
+	opts.Query["uid"] = "1"
+	opts.Query["cid"] = "conf_123"
 	uri := "http://192.168.1.70:9090/socket.io/"
 
-	client, err := socketio_client.NewClient(uri, opts)
+	client,err := socketio_client.NewClient(uri,opts)
 	if err != nil {
-		log.Printf("NewClient error:%v\n", err)
+		log.Printf("NewClient error:%v\n",err)
 		return
 	}
 
@@ -36,11 +37,19 @@ func main() {
 		log.Printf("on disconnect\n")
 	})
 
+	go func() {
+		authStr := "{\"uid\":\"" + opts.Query["uid"] + "\",\"cid\":\"" + opts.Query["cid"] + "\"}"
+		for {
+			client.Emit("authenticate", authStr)
+			time.Sleep(10 * time.Second)
+		}
+	}()
+
 	reader := bufio.NewReader(os.Stdin)
-	for {
+	for  {
 		data, _, _ := reader.ReadLine()
 		command := string(data)
-		client.Emit("message", command)
-		log.Printf("send message:%v\n", command)
+		client.Emit("message",command)
+		log.Printf("send message:%v\n",command)
 	}
 }
