@@ -293,28 +293,28 @@ func (c *clientConn) onOpen() error {
 	c.pingTimeout = msg.PingTimeout
 	c.id = msg.Sid
 
-	/*
-		q.Set("sid", c.id)
-		c.request.URL.RawQuery = q.Encode()
+	c.getCurrent().Close()
 
-		transport, err = creater.Client(c.request)
-		if err != nil {
-			return err
-		}
-		c.setCurrent("polling", transport)
+	q.Set("sid", c.id)
+	c.request.URL.RawQuery = q.Encode()
 
-		pack, err = c.getCurrent().NextReader()
-		if err != nil {
-			return err
-		}
+	transport, err = creater.Client(c.request)
+	if err != nil {
+		return err
+	}
+	c.setCurrent("polling", transport)
 
-		p2 := make([]byte, 4096)
-		l, err = pack.Read(p2)
-		if err != nil {
-			return err
-		}
-		//fmt.Println(string(p2))
-	*/
+	pack, err = c.getCurrent().NextReader()
+	if err != nil {
+		return err
+	}
+
+	p2 := make([]byte, 4096)
+	l, err = pack.Read(p2)
+	if err != nil {
+		return err
+	}
+	//fmt.Println(string(p2))
 
 	//upgrade
 	creater, exists = creaters["websocket"]
