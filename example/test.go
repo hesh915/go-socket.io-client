@@ -40,7 +40,10 @@ func main() {
 	go func() {
 		authStr := "{\"uid\":\"" + opts.Query["uid"] + "\",\"cid\":\"" + opts.Query["cid"] + "\"}"
 		for {
-			client.Emit("authenticate", authStr)
+			err := client.Emit("authenticate", authStr)
+			if err != nil {
+				log.Printf("Emit auth error:%v\n",err)
+			}
 			time.Sleep(10 * time.Second)
 		}
 	}()
@@ -49,7 +52,11 @@ func main() {
 	for  {
 		data, _, _ := reader.ReadLine()
 		command := string(data)
-		client.Emit("message",command)
+		err := client.Emit("message",command)
+		if err != nil {
+			log.Printf("Emit message error:%v\n",err)
+			continue
+		}
 		log.Printf("send message:%v\n",command)
 	}
 }
