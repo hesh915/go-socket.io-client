@@ -11,12 +11,13 @@ import (
 func main() {
 
 	opts := &socketio_client.Options{
+		//Transport:"polling",
 		Transport:"websocket",
 		Query:make(map[string]string),
 	}
 	opts.Query["uid"] = "1"
 	opts.Query["cid"] = "conf_123"
-	uri := "http://192.168.1.70:9090/socket.io/"
+	uri := "http://192.168.1.70:9090"
 
 	client,err := socketio_client.NewClient(uri,opts)
 	if err != nil {
