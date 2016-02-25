@@ -2,9 +2,10 @@ package socketio_client
 
 import (
 	"net/url"
-	"reflect"
 	"path"
+	"reflect"
 	"strings"
+	"sync"
 )
 
 type Options struct {
@@ -17,10 +18,11 @@ type Client struct {
 
 	conn *clientConn
 
-	events    map[string]*caller
-	acks      map[int]*caller
-	id        int
-	namespace string
+	eventsLock sync.RWMutex
+	events     map[string]*caller
+	acks       map[int]*caller
+	id         int
+	namespace  string
 }
 
 func NewClient(uri string, opts *Options) (client *Client, err error) {
@@ -29,10 +31,10 @@ func NewClient(uri string, opts *Options) (client *Client, err error) {
 	if err != nil {
 		return
 	}
-	url.Path = path.Join("/socket.io",url.Path)
+	url.Path = path.Join("/socket.io", url.Path)
 	url.Path = url.EscapedPath()
-	if strings.HasSuffix(url.Path,"socket.io"){
-		url.Path+="/"
+	if strings.HasSuffix(url.Path, "socket.io") {
+		url.Path += "/"
 	}
 	q := url.Query()
 	for k, v := range opts.Query {
@@ -63,7 +65,9 @@ func (client *Client) On(message string, f interface{}) (err error) {
 	if err != nil {
 		return
 	}
+	client.eventsLock.Lock()
 	client.events[message] = c
+	client.eventsLock.Unlock()
 	return
 }
 
@@ -147,7 +151,9 @@ func (client *Client) onPacket(decoder *decoder, packet *packet) ([]interface{},
 	default:
 		message = decoder.Message()
 	}
+	client.eventsLock.RLock()
 	c, ok := client.events[message]
+	client.eventsLock.RUnlock()
 	if !ok {
 		// If the message is not recognized by the server, the decoder.currentCloser
 		// needs to be closed otherwise the server will be stuck until the e

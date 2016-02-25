@@ -181,6 +181,7 @@ func (c *clientConn) OnPacket(r *parser.PacketDecoder) {
 		t := c.getCurrent()
 		u := c.getUpgrade()
 		newWriter := t.NextWriter
+		c.writerLocker.Lock()
 		if u != nil {
 			if w, _ := t.NextWriter(message.MessageText, parser.NOOP); w != nil {
 				w.Close()
@@ -191,6 +192,7 @@ func (c *clientConn) OnPacket(r *parser.PacketDecoder) {
 			io.Copy(w, r)
 			w.Close()
 		}
+		c.writerLocker.Unlock()
 		fallthrough
 	case parser.PONG:
 		c.pingChan <- true
