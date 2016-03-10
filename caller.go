@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 type caller struct {
-	Func       reflect.Value
-	Args       []reflect.Type
+	sync.RWMutex
+	Func reflect.Value
+	Args []reflect.Type
 }
 
 func newCaller(f interface{}) (*caller, error) {
@@ -28,12 +30,15 @@ func newCaller(f interface{}) (*caller, error) {
 	}
 
 	return &caller{
-		Func:       fv,
-		Args:       args,
+		Func: fv,
+		Args: args,
 	}, nil
 }
 
 func (c *caller) GetArgs() []interface{} {
+	c.RLock()
+	defer c.RUnlock()
+
 	ret := make([]interface{}, len(c.Args))
 	for i, argT := range c.Args {
 		if argT.Kind() == reflect.Ptr {
@@ -46,6 +51,8 @@ func (c *caller) GetArgs() []interface{} {
 }
 
 func (c *caller) Call(args []interface{}) []reflect.Value {
+	c.RLock()
+	defer c.RUnlock()
 	var a []reflect.Value
 	diff := 0
 
