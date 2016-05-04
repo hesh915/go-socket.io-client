@@ -40,7 +40,7 @@ type MessageType message.MessageType
 
 const (
 	MessageBinary MessageType = MessageType(message.MessageBinary)
-	MessageText   MessageType = MessageType(message.MessageText)
+	MessageText MessageType = MessageType(message.MessageText)
 )
 
 type state int
@@ -55,7 +55,7 @@ const (
 
 type clientConn struct {
 	id              string
-	transportName   string
+	options         *Options
 	url             *url.URL
 	request         *http.Request
 	writerLocker    sync.Mutex
@@ -72,19 +72,19 @@ type clientConn struct {
 	pingChan        chan bool
 }
 
-func newClientConn(transportName string, u *url.URL) (client *clientConn, err error) {
-	if transportName == "" {
-		transportName = "websocket"
+func newClientConn(opts *Options, u *url.URL) (client *clientConn, err error) {
+	if opts.Transport == "" {
+		opts.Transport = "websocket"
 	}
 
-	_, exists := creaters[transportName]
+	_, exists := creaters[opts.Transport]
 	if !exists {
 		return nil, InvalidError
 	}
 
 	client = &clientConn{
 		url:           u,
-		transportName: transportName,
+		options:       opts,
 		state:         stateNormal,
 		pingTimeout:   60000 * time.Millisecond,
 		pingInterval:  25000 * time.Millisecond,
@@ -268,6 +268,9 @@ func (c *clientConn) onOpen() error {
 	q := c.request.URL.Query()
 	q.Set("transport", "polling")
 	c.request.URL.RawQuery = q.Encode()
+	if (c.options.Header != nil) {
+		c.request.Header = c.options.Header
+	}
 
 	transport, err := creater.Client(c.request)
 	if err != nil {
@@ -331,9 +334,9 @@ func (c *clientConn) onOpen() error {
 	}
 	//fmt.Println(string(p2))
 
-	if c.transportName == "polling" {
+	if c.options.Transport == "polling" {
 		//over
-	} else if c.transportName == "websocket" {
+	} else if c.options.Transport == "websocket" {
 		//upgrade
 		creater, exists = creaters["websocket"]
 		if !exists {
