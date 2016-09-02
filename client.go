@@ -11,6 +11,7 @@ import (
 type Options struct {
 	Transport string            //protocol name string,websocket polling...
 	Query     map[string]string //url的附加的参数
+	Header 	  map[string][]string
 }
 
 type Client struct {
@@ -42,7 +43,7 @@ func NewClient(uri string, opts *Options) (client *Client, err error) {
 	}
 	url.RawQuery = q.Encode()
 
-	socket, err := newClientConn(opts.Transport, url)
+	socket, err := newClientConn(opts, url)
 	if err != nil {
 		return
 	}
