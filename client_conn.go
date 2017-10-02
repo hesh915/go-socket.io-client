@@ -343,7 +343,11 @@ func (c *clientConn) onOpen() error {
 			return InvalidError
 		}
 
-		c.request.URL.Scheme = "ws"
+		if c.request.URL.Scheme == "https" {
+			c.request.URL.Scheme = "wss"
+		} else {
+			c.request.URL.Scheme = "ws"
+		}
 		q.Set("sid", c.id)
 		q.Set("transport", "websocket")
 		c.request.URL.RawQuery = q.Encode()
