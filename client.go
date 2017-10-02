@@ -110,6 +110,7 @@ func (client *Client) sendConnect() error {
 }
 
 func (client *Client) sendId(args []interface{}) (int, error) {
+	client.eventsLock.Lock()
 	packet := packet{
 		Type: _EVENT,
 		Id:   client.id,
@@ -120,6 +121,8 @@ func (client *Client) sendId(args []interface{}) (int, error) {
 	if client.id < 0 {
 		client.id = 0
 	}
+	client.eventsLock.Unlock()
+
 	encoder := newEncoder(client.conn)
 	err := encoder.Encode(packet)
 	if err != nil {
