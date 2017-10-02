@@ -91,7 +91,9 @@ func (client *Client) Emit(message string, args ...interface{}) (err error) {
 		if err != nil {
 			return err
 		}
+		client.eventsLock.Lock()
 		client.acks[id] = c
+		client.eventsLock.Unlock()
 		return nil
 	}
 	return client.send(args)
@@ -192,7 +194,9 @@ func (client *Client) onPacket(decoder *decoder, packet *packet) ([]interface{},
 }
 
 func (client *Client) onAck(id int, decoder *decoder, packet *packet) error {
+	client.eventsLock.RLock()
 	c, ok := client.acks[id]
+	client.eventsLock.RUnlock()
 	if !ok {
 		return nil
 	}
