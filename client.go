@@ -11,7 +11,7 @@ import (
 type Options struct {
 	Transport string            //protocol name string,websocket polling...
 	Query     map[string]string //url的附加的参数
-	Header 	  map[string][]string
+	Header    map[string][]string
 }
 
 type Client struct {
@@ -169,7 +169,7 @@ func (client *Client) onPacket(decoder *decoder, packet *packet) ([]interface{},
 	}
 	args := c.GetArgs()
 	olen := len(args)
-	if olen > 0 {
+	if decoder != nil && olen > 0 {
 		packet.Data = &args
 		if err := decoder.DecodeData(packet); err != nil {
 			return nil, err
