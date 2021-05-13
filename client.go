@@ -99,6 +99,21 @@ func (client *Client) Emit(message string, args ...interface{}) (err error) {
 	return client.send(args)
 }
 
+func (client *Client) Close() error {
+	return client.conn.Close()
+}
+
+func (client *Client) Connected() bool {
+	switch client.conn.getState() {
+	case stateNormal, stateUpgrading:
+		return true
+	case stateUnknow, stateClosed:
+		fallthrough
+	default:
+		return false
+	}
+}
+
 func (client *Client) sendConnect() error {
 	packet := packet{
 		Type: _CONNECT,
